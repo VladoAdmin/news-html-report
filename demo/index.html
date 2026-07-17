@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CC/Anthropic/OpenAI news</title>
+<style>:root {
+  color-scheme: light;
+  --accent: #4f46e5;
+  --accent-dark: #3730a3;
+  --bg: #f7f6f2;
+  --card-bg: #ffffff;
+  --text: #1f2430;
+  --muted: #5b6472;
+  --border: #e2e0da;
+  --ok: #15803d;
+  --warn: #b45309;
+  --unknown: #6b7280;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { line-height: 1.25; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent-dark); }
+h3 { font-size: 1.05rem; margin: 0 0 8px; }
+.lead {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.lead h1 { color: #fff; }
+.report-date { opacity: 0.85; margin: 0 0 12px; font-size: 0.9rem; }
+.lead-summary p { margin: 0 0 10px; }
+.lead-summary p:last-child { margin-bottom: 0; }
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.06);
+}
+.item-card { border-left: 4px solid var(--accent); }
+.badges { margin-bottom: 6px; }
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+  color: #fff;
+}
+.badge-breaking { background: #dc2626; }
+.badge-info { background: #64748b; }
+.badge-pattern { background: #7c3aed; }
+.badge-unknown { background: #9ca3af; }
+.item-title { margin: 4px 0 10px; }
+.field { margin-top: 10px; }
+.field-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+.field-body p { margin: 4px 0; }
+.item-extra { padding: 10px 0; border-top: 1px dashed var(--border); margin-top: 10px; }
+.health-summary { font-weight: 600; margin-bottom: 10px; }
+.health-grid { display: flex; flex-direction: column; gap: 6px; }
+.health-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.status-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.ok { background: var(--ok); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.unknown { background: var(--unknown); }
+.health-source { font-weight: 600; flex: 0 0 auto; }
+.health-note { color: var(--muted); font-size: 0.9rem; }
+.skipped-section details {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.skipped-section summary { cursor: pointer; font-weight: 600; }
+.generic-section h2 { margin-top: 0; }
+.site-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.site-footer a { color: var(--accent-dark); }
+.site-footer .current { color: var(--text); }
+@media (min-width: 640px) {
+  .container { padding: 32px; }
+  h1 { font-size: 2rem; }
+  .health-row { align-items: center; }
+}</style>
+</head>
+<body>
+<div class="container">
+<header class="lead"><h1>CC/Anthropic/OpenAI news</h1><p class="report-date">2026-07-17</p><div class="lead-summary"><p>Two things actually matter today. First, Claude Code shipped v2.1.211 (GitHub, 2026-07-15) with fixes that land directly on our own orchestration pain points — most notably, background agents no longer fabricate completion results while still running, they now report real status. Second, Anthropic's Claude Code +50% weekly usage limit promo (running since May) ends in <strong>3 days, on 2026-07-19</strong> — after that, weekly limits drop back to standard, and this is the same deadline the Reddit community is currently venting about because the last three weekly resets have landed unfavorably for many users' timezones. Everything else today is lower-signal: a resolved ~4h Anthropic outage, OpenAI's first hardware product (a $230 keyboard, not directly relevant to us), and ongoing Reddit chatter comparing Codex vs Claude Code token economics.</p></div></header>
+<section class="items-section">
+<h2>Items</h2>
+<article class="card item-card">
+<div class="badges"><span class="badge badge-breaking">BREAKING</span></div>
+<h3 class="item-title">Claude Code v2.1.211 — background-agent fabrication fix, subagent model-override bug fix, permission-preview injection hardening</h3>
+<div class="field"><div class="field-label">Čo to je</div><div class="field-body"><p>Anthropic vydal novú verziu Claude Code (v2.1.211, 2026-07-15) s dlhým changelogom. Tri veci z neho sa priamo dotýkajú nášho vlastného spôsobu práce:</p>
+<ul><li><strong>Background agenti už nefabrikujú výsledky.</strong> Doteraz keď F2 spustila dlhší CC beh na pozadí a spýtala sa na stav skôr než dobehol, model si vedel "vymyslieť" výsledok namiesto priznania, že úloha ešte beží. Táto verzia to opravuje — Claude teraz reportuje skutočný stav ešte bežiacich agentov a čaká na reálne dokončenie.</li><li><strong>Oprava bugu, kde subagent s explicitne nastaveným modelom (napr. Sonnet namiesto Opus) sa pri resume alebo follow-up správe potichu vrátil na model rodiča.</strong> Toto je presne mechanizmus, na ktorom stojí náš CC pipeline v2 (Opus PRD/PLAN → GPT gates → Sonnet kód) — ak sme niekedy resumovali/posielali follow-up šprintu, mohol sa model potichu prehodiť bez toho, aby sme si to všimli.</li><li><strong>Bezpečnostná oprava:</strong> permission preview hlásenia (schvaľovacie správy do chat kanálov, presne náš use case s Telegram approval flow) teraz neutralizujú bidirectional-override, zero-width a look-alike znaky — predtým mohol nedôveryhodný obsah v tool inpute vizuálne pozmeniť to, čo Vlado vidí pri schvaľovaní.</li><li>Ďalšie: worktree-viazané <code>claude agents</code> joby, ktoré git už nerozpoznáva, sa už nezasekávajú ako natrvalo nezmazateľné (relevantné pre náš worktree-izolovaný paralelný beh CC agentov), a <code>/clear</code> teraz správne resetuje cost counter v statusline.</li></ul></div></div>
+<div class="field"><div class="field-label">Prečo nás to zaujíma</div><div class="field-body"><p>Prvé dva body sú presne tie chyby, proti ktorým sme si stavali vlastné mechanizmy (status súbory, watchdog, worktree izolácia) — teraz ich Anthropic rieši natívne v CC samotnom.</p></div></div>
+<div class="field"><div class="field-label">Akcia</div><div class="field-body"><p>Over aktuálnu CC verziu (<code>claude --version</code> alebo ekvivalent) a uisti sa, že beží ≥2.1.211. Žiadna config zmena netreba, len over že update prebehol; zápis do knowledge-base urobený.</p></div></div>
+<div class="field"><div class="field-label">Zdroj</div><div class="field-body"><p><code>github.com/anthropics/claude-code</code> CHANGELOG.md, priamo overené (nie citácia z last30days).</p></div></div>
+</article>
+<article class="card item-card">
+<div class="badges"><span class="badge badge-breaking">BREAKING</span></div>
+<h3 class="item-title">Claude Code +50% weekly usage limit promo končí o 3 dni (19.7.2026) — Reddit komunita sa sťažuje na zlé časovanie resetov</h3>
+<div class="field"><div class="field-label">Čo to je</div><div class="field-body"><p>Oficiálny <code>support.claude.com</code> článok potvrdzuje, že Pro/Max/Team plány (aj legacy Enterprise seat-y) majú od 13.5. do 19.7.2026 o 50% vyšší týždenný limit v Claude Code — automaticky, bez akcie, cez <code>/usage</code> overiteľné. Po 19.7. sa limit vráti na štandardnú úroveň. Súbežne s tým sa na Reddite objavili 4 samostatné vlákna (spolu stovky hlasov a desiatky-stovky komentárov) sťažujúce sa, že posledné tri týždenné resety padli takmer presne na čas ich vlastného reset okna — takže reálne z navýšenia nič nemali, lebo im nový cyklus začal skôr, než stihli vyčerpať starý.</p></div></div>
+<div class="field"><div class="field-label">Prečo nás to zaujíma</div><div class="field-body"><p>Toto sa priamo týka Vladovho otvoreného témy "Anthropic billing change 15.6" (capped credit ~$4k/mes) v pamäti — je to rovnaká rodina problému (nepredvídateľné/nevýhodné limity), len iný uhol. Náš primárny CC coding spawn (T-MAX/interaktívny Claude Code na Max pláne) profituje z tohto navýšenia PRÁVE TERAZ — ak máme naplánovaný väčší viacšprintový beh, oplatí sa ho spustiť pred 19.7., pretože po tom dátume sa kapacita zníži na štandard bez zmeny plánu/billingu.</p></div></div>
+<div class="field"><div class="field-label">Akcia</div><div class="field-body"><p>Ak je niečo väčšie na CC pipeline naplánované najbližšie dni, uprednostni ho pred 19.7. Žiadna iná akcia netreba, toto je len okno príležitosti.</p></div></div>
+<div class="field"><div class="field-label">Zdroj</div><div class="field-body"><p><code>support.claude.com/en/articles/15910845-claude-code-may-july-2026-weekly-limits-promotion</code> (priamo overené) + Reddit r/ClaudeCode vlákna "We need banked resets" (80pts/16cmt), "Anthropic's limit resets mean some people have had double the usage" (252pts/136cmt), "Resets are lining up nearly exactly with my weekly reset" (65pts/42cmt), r/Anthropic "Anthropic you are likely making a mistake" (196pts/113cmt).</p></div></div>
+</article>
+<article class="card item-card">
+<div class="badges"><span class="badge badge-info">INFO</span></div>
+<h3 class="item-title">Anthropic mal ~4-hodinový výpadok 16.7.2026 (vyriešený)</h3>
+<div class="field"><div class="field-label">Čo to je</div><div class="field-body"><p><code>status.claude.com</code> zaznamenal major incident "Elevated errors for multiple models" od 18:36 do 22:53 UTC (16.7.), ktorý postihol claude.ai, Claude API, Claude Code aj Claude Cowork. Najprv boli postihnuté všetky modely, neskôr sa problém zúžil len na Fable 5 a Mythos 5, kým sa nevyriešil úplne.</p></div></div>
+<div class="field"><div class="field-label">Prečo nás to zaujíma</div><div class="field-body"><p>Incident je už vyriešený a nevyžaduje žiadnu akciu, ale ak niekto z tímu (alebo CC beh) hlásil v tomto okne chyby na Claude API, teraz vieme, že to bol reálny, dočasný Anthropic-side problém, nie náš config.</p></div></div>
+<div class="field"><div class="field-label">Akcia</div><div class="field-body"><p>Žiadna — informatívne. Ak sa podobný vzorec zopakuje, over <code>status.claude.com</code> skôr než diagnostikuješ lokálny problém.</p></div></div>
+<div class="field"><div class="field-label">Zdroj</div><div class="field-body"><p><code>status.claude.com/api/v2/incidents.json</code>, priamo overené.</p></div></div>
+</article>
+<article class="card item-card">
+<div class="badges"><span class="badge badge-info">INFO</span></div>
+<h3 class="item-title">OpenAI vypustil svoj prvý hardvérový produkt — Codex Micro, $230 klávesnica/makro-panel (Work Louder spolupráca)</h3>
+<div class="field"><div class="field-label">Čo to je</div><div class="field-body"><p>15.7.2026 OpenAI spustil "Codex Micro" (kbd-1.0-codex-micro) — malú programovateľnú klávesnicu/makro-panel s RGB tlačidlami a joystickom, vyrobenú v spolupráci s Work Louder, určenú na rýchle ovládanie Codex agentových workflowov (mapovanie skratiek, pinned chaty). Na Reddite sa objavili tri samostatné vlákna s vysokým engagementom (586, 142, 108 upvotes) reagujúce na oznámenie — potvrdené aj priamo cez OpenAI stránku a viacero nezávislých médií (9to5Mac, Business Insider, Gizmodo).</p></div></div>
+<div class="field"><div class="field-label">Prečo nás to zaujíma</div><div class="field-body"><p>Priamy dopad na náš CC pipeline nie je žiadny — je to fyzický merch produkt, nie softvérová zmena. Zaujímavé je len ako signál konkurenčného pozicovania OpenAI voči Anthropic/Claude Code (prvý hardvérový produkt OpenAI vôbec).</p></div></div>
+<div class="field"><div class="field-label">Akcia</div><div class="field-body"><p>Žiadna. Na sledovanie.</p></div></div>
+<div class="field"><div class="field-label">Zdroj</div><div class="field-body"><p><code>openai.com/supply/co-lab/work-louder/</code>, <code>9to5mac.com</code>, priamo overené + X post <code>@OpenAIDevs</code>.</p></div></div>
+</article>
+<article class="card item-card">
+<div class="badges"><span class="badge badge-pattern">PATTERN</span><span class="badge badge-info">INFO</span></div>
+<h3 class="item-title">Reddit diskusia: Codex vs Claude Code — nákladová efektivita</h3>
+<div class="field"><div class="field-label">Čo to je</div><div class="field-body"><p>Vysoko sledované vlákno r/ClaudeCode "Is this true?" (1,415pts/341cmt, top komentár 816 upvotes) diskutuje tvrdenie, že Codex je "polovičná cena a menej tokenov" než Fable/Claude pri podobnej práci. Konkrétny komentár od používateľa s 20x predplatným oboch nástrojov: reálne robí cca 4× viac práce s Codexom než s Claude na rovnaký subscription tier, s poznámkou že Fable je lepší na intenzívny frontend, Codex na všetko ostatné.</p></div></div>
+<div class="field"><div class="field-label">Prečo nás to zaujíma</div><div class="field-body"><p>Toto je presne ten typ community signálu, ktorý potvrdzuje zmysel nášho vlastného cost-aware modelového routingu (<code>docs/processes/model-routing.md</code>) a existujúceho fallbacku na GPT/Codex pri Anthropic výpadku — komunita nezávisle potvrdzuje, že Codex vie byť lacnejšia/efektívnejšia voľba pre určité typy úloh.</p></div></div>
+<div class="field"><div class="field-label">Akcia</div><div class="field-body"><p>Žiadna okamžitá — len potvrdenie, že náš existujúci model-routing prístup (nie hardcoded jeden model) je správny smer.</p></div></div>
+<div class="field"><div class="field-label">Zdroj</div><div class="field-body"><p>Reddit r/ClaudeCode "Is this true?" (2026-07-14).</p></div></div>
+</article>
+</section>
+<section class="source-health"><h2>Source health</h2><div class="health-summary">5 OK · 3 WARN</div><div class="health-grid"><div class="health-row"><span class="status-dot ok"></span><span class="health-source">Reddit</span><span class="health-note">177/179/171 unique postov cez 3 témy (Claude Code/Anthropic/OpenAI Codex), 6 threadov/téma zobrazených — funguje normálne (žiadny 402, na rozdiel od 07-13 až 07-16 WARN)</span></div><div class="health-row"><span class="status-dot ok"></span><span class="health-source">Hacker News</span><span class="health-note">6/6/4 stories cez 3 témy</span></div><div class="health-row"><span class="status-dot warn"></span><span class="health-source">GitHub (last30days star enrichment)</span><span class="health-note">HTTP 503 (transient) pri star-enrichment volaní vo vnútri last30days; priamy GitHub API dotaz (releases + changelog) mimo last30days fungoval bez problémov (v2.1.211 potvrdené)</span></div><div class="health-row"><span class="status-dot ok"></span><span class="health-source">Web (last30days, Brave backend)</span><span class="health-note">1/1/4 výsledky</span></div><div class="health-row"><span class="status-dot ok"></span><span class="health-source">X/Twitter (`x_timeline.py`)</span><span class="health-note">14 účtov, 9 postov za 7 dní, žiadny login_wall</span></div><div class="health-row"><span class="status-dot ok"></span><span class="health-source">status.claude.com</span><span class="health-note">Načítané, 1 major incident za posledných 24h (vyriešený)</span></div><div class="health-row"><span class="status-dot warn"></span><span class="health-source">last30days interný OpenAI planner/reranker/fun-judge</span><span class="health-note">HTTP 403 Forbidden na Planner/Rerank/FunJudge vo všetkých 3 témach — fallback na deterministické radenie funguje, ale bez LLM-driven rankingu. Rovnaký problém ako v knowledge-base zázname 07-15/07-16, teraz 5. deň</span></div><div class="health-row"><span class="status-dot warn"></span><span class="health-source">Brave web_search (priamy F2 dotaz mimo last30days)</span><span class="health-note">Rate limit 429 pri druhom dotaze (2000/mes kvóta, 168 spotrebovaných) — nekritické, prvý dotaz (Codex Micro) prešiel</span></div></div></section>
+<section class="skipped-section"><details><summary>Skipped (5)</summary><ul><li>HN "Brainless: Shadcn components that look like Claude Code, Codex and Grok" (127pts) — UI komponentová knižnica, nie priamo akcieschopné, ale zaujímavé pre <code>ui-component-catalog</code> skill ak niekedy budeme robiť CC/Codex-štýl branding.</li><li>HN "Zig Creator Calls Spade a Spade, Anthropic Blows Smoke" (1,535pts/781cmt) — kritický opinion piece o Anthropic marketingovej naratíve (Bun Zig→Rust rewrite kontroverzia). Zaujímavý kontext, ale nie akcieschopný pre nás.</li><li>HN "At least 105 past YC founders have worked at OpenAI and Anthropic", "EU officials peeved after Anthropic sends junior staffer to testify", "$65K to work at Anthropic? Debate amid IPO wave" — biznis/PR/politika, žiadny dopad na náš workflow.</li><li>Reddit "I'm building a fighter jet game with Claude" (2,201pts) — viral/meme obsah, nie signál pre nás.</li><li>GitHub <code>awesome-claude-code</code> zoznam, Show HN "After Effects with Claude Code/Cursor/Antigravity", "Apply Claude Code on Screenwriting" — nízky engagement/nie nové.</li></ul></details></section>
+<section class="card generic-section"><h2>Recommended actions</h2><ol><li><strong>Over CC verziu</strong> — uisti sa, že beží ≥v2.1.211, aby sme mali background-agent reporting fix a subagent model-override fix aktívne. (Item #1)</li><li><strong>Ak je naplánovaný väčší viacšprintový CC beh, spusti ho pred 19.7.2026</strong> — po tom dátume sa +50% weekly limit promo skončí. (Item #2)</li><li><strong>5. deň za sebou last30days interný OpenAI 403</strong> (Planner/Rerank/FunJudge) — podľa SOUL princípu 3 (mechanizmus &gt; ďalšie pravidlo) toto už prekročilo prah "len poznamenaj". Potrebuje explicitné rozhodnutie: over scope/platnosť OpenAI kľúča, ktorý last30days interne používa na plánovanie, alebo formálne akceptuj degradovaný (deterministický) ranking ako trvalý stav. Predchádzajúce dni (07-15, 07-16) len opakovane poznamenali rovnaký problém bez rozhodnutia.</li><li>Žiadna akcia netreba pre Codex Micro (hardvér) ani Zig/Anthropic opinion piece — len na sledovanie.</li></ol></section>
+<section class="card generic-section"><h2>Telegram summary draft</h2><p>[F2] Dnešný news scan má dve reálne dôležité veci a zvyšok je len na sledovanie.</p>
+<p>Prvá vec: Claude Code dostal nový update (verzia 2.1.211, vyšiel 15.7.). Obsahuje presne to, čo sme si doteraz museli riešiť vlastnými mechanizmami — keď F2 spustí dlhší beh na pozadí a spýta sa skôr, než dobehne, model si vedel "vymyslieť" výsledok namiesto priznania, že úloha ešte beží. Táto verzia to opravuje, Claude teraz čaká na skutočné dokončenie. Opravený je aj bug, kde sa subagent s explicitne nastaveným lacnejším modelom vedel pri pokračovaní potichu prehodiť späť na drahší model rodiča — to je presne mechanizmus, na ktorom stojí naša CC pipeline v2. A je tam aj bezpečnostná oprava: schvaľovacie správy posielané do chatu (presne náš Telegram approval flow) už neutralizujú skryté znaky, ktorými by niekto mohol vizuálne pozmeniť to, čo pri schvaľovaní vidíš. Odporúčam len overiť, že nám beží aktuálna verzia — žiadna iná zmena netreba.</p>
+<p>Druhá vec: Anthropicin bonus +50% na týždenný limit v Claude Code (bežal od mája) končí o 3 dni, 19. júla. Zároveň sa na Reddite hromadia sťažnosti (štyri samostatné vlákna, stovky hlasov), že posledné tri týždenné resety padli nešťastne presne na čas, keď ľuďom končí ich vlastné okno — takže z bonusu reálne nič nemali. Nás sa to týka takto: náš hlavný CC beh (na Max pláne) z toho bonusu teraz profituje, takže ak máš naplánovaný nejaký väčší viacšprintový beh, oplatí sa ho spustiť v najbližších troch dňoch, kým je kapacita vyššia.</p>
+<p>Zvyšok je krátko: Anthropic mal včera cca 4-hodinový výpadok (už vyriešený, netreba riešiť). OpenAI vypustil svoj prvý hardvérový produkt — $230 programovateľná klávesnica pre Codex workflow (Codex Micro) — zaujímavé len ako signál konkurenčného tlaku, priamy dopad na nás žiadny. A na Reddite beží diskusia, kde človek s predplatným oboch nástrojov hovorí, že s Codexom stíha asi 4× viac práce než s Claude na rovnaký balík — potvrdzuje to len, že náš prístup "nepoužívať len jeden model, ale routovať podľa úlohy" dáva zmysel.</p>
+<p>Jedna prevádzková vec na koniec: interný plánovací nástroj v našom news scanu (last30days) má už 5. deň za sebou chybu 403 pri LLM-riadenom radení novín (funguje náhradný, jednoduchší spôsob, takže scan stále beží, len s nižšou kvalitou triedenia). Toto by som chcela buď opraviť, alebo formálne prijať ako trvalý stav — zatiaľ sa to len opakovane poznamenávalo bez rozhodnutia.</p></section>
+<footer class="site-footer"><strong class="current">2026-07-17</strong></footer>
+</div>
+</body>
+</html>

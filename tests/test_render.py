@@ -200,6 +200,14 @@ def test_skipped_absent_when_none():
     assert "Skipped" not in html
 
 
+def test_skipped_count_ignores_nested_bullets():
+    # A nested sub-bullet under a top-level item is not itself a skipped
+    # item -- must not inflate the "Skipped (N)" count.
+    skipped_md = "- one\n  - nested detail\n- two\n"
+    html = render_page(_report_with_skipped(skipped_md), all_dates=["2026-01-01"], is_archive_page=False)
+    assert "<summary>Skipped (2)</summary>" in html
+
+
 # ---------------------------------------------------------------------------
 # item_extras (real sample regression) and other_sections (order)
 # ---------------------------------------------------------------------------

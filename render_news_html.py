@@ -633,9 +633,10 @@ def _render_source_health(report: ReportData) -> str:
 
 
 def _count_bullet_lines(md_text: str) -> int:
-    """Count top-level bullet lines (lines starting with ``-`` or ``*``
-    after stripping leading whitespace) -- used for the Skipped count."""
-    return sum(1 for line in md_text.split("\n") if line.strip().startswith(("-", "*")))
+    """Count top-level bullet lines (``-``/``*`` at column 0, no leading
+    indentation) -- used for the Skipped count. Indented/nested bullets
+    are not top-level items and must not inflate this count."""
+    return sum(1 for line in md_text.split("\n") if line.startswith(("-", "*")))
 
 
 def _render_skipped(report: ReportData) -> str:

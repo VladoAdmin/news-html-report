@@ -14,6 +14,12 @@ Sprint 2a (VLA-54, renderer core only) additionally provides:
 
 No CLI, no archive/index directory writing here -- that is Sprint 2b.
 
+Sprint 4 (VLA-60, dark mode + responsive) additionally provides:
+  - Light/dark CSS custom properties in ``_PAGE_CSS`` (OS ``prefers-color-scheme``
+    default, ``data-theme`` attribute override for the manual toggle).
+  - A blocking theme-init inline script + a deferred toggle-wiring script,
+    both rendered by ``render_page`` -- shared by index and archive pages.
+
 Python 3.11 stdlib only.
 """
 
@@ -428,6 +434,7 @@ _PAGE_CSS = """
   color-scheme: light;
   --accent: #4f46e5;
   --accent-dark: #3730a3;
+  --link: #3730a3;
   --bg: #f7f6f2;
   --card-bg: #ffffff;
   --text: #1f2430;
@@ -436,6 +443,39 @@ _PAGE_CSS = """
   --ok: #15803d;
   --warn: #b45309;
   --unknown: #6b7280;
+  --code-bg: rgba(31, 36, 48, 0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --accent: #6366f1;
+    --accent-dark: #4338ca;
+    --link: #a5b4fc;
+    --bg: #10131a;
+    --card-bg: #1b1f2a;
+    --text: #e7e9ee;
+    --muted: #9aa3b5;
+    --border: #2d3242;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --unknown: #9ca3af;
+    --code-bg: rgba(255, 255, 255, 0.08);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --accent: #6366f1;
+  --accent-dark: #4338ca;
+  --link: #a5b4fc;
+  --bg: #10131a;
+  --card-bg: #1b1f2a;
+  --text: #e7e9ee;
+  --muted: #9aa3b5;
+  --border: #2d3242;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --unknown: #9ca3af;
+  --code-bg: rgba(255, 255, 255, 0.08);
 }
 * { box-sizing: border-box; }
 body {
@@ -445,11 +485,19 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  overflow-wrap: anywhere;
+}
+code {
+  background: var(--code-bg);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .container { max-width: 720px; margin: 0 auto; padding: 16px; }
 h1, h2, h3 { line-height: 1.25; }
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
-h2 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent-dark); }
+h2 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--link); }
 h3 { font-size: 1.05rem; margin: 0 0 8px; }
 .lead {
   background: linear-gradient(135deg, var(--accent), var(--accent-dark));
@@ -459,6 +507,28 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
   margin-bottom: 24px;
 }
 .lead h1 { color: #fff; }
+.lead-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lead-heading { min-width: 0; }
+.theme-toggle {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.theme-toggle:hover { background: rgba(255, 255, 255, 0.28); }
+.theme-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .report-date { opacity: 0.85; margin: 0 0 12px; font-size: 0.9rem; }
 .lead-summary p { margin: 0 0 10px; }
 .lead-summary p:last-child { margin-bottom: 0; }
@@ -486,13 +556,13 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
 .badge-breaking { background: #dc2626; }
 .badge-info { background: #64748b; }
 .badge-pattern { background: #7c3aed; }
-.badge-unknown { background: #9ca3af; }
+.badge-unknown { background: #6b7280; }
 .item-title { margin: 4px 0 10px; }
 .field { margin-top: 10px; }
 .field-label {
   font-weight: 600;
   font-size: 0.85rem;
-  color: var(--accent-dark);
+  color: var(--link);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   margin-bottom: 2px;
@@ -503,6 +573,7 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
 .health-grid { display: flex; flex-direction: column; gap: 6px; }
 .health-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 8px;
   background: var(--card-bg);
@@ -517,6 +588,7 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
   border-radius: 50%;
   display: inline-block;
 }
+.health-note { min-width: 0; }
 .status-dot.ok { background: var(--ok); }
 .status-dot.warn { background: var(--warn); }
 .status-dot.unknown { background: var(--unknown); }
@@ -537,7 +609,13 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
   font-size: 0.85rem;
   color: var(--muted);
 }
-.site-footer a { color: var(--accent-dark); }
+.site-footer a {
+  color: var(--link);
+  padding: 4px 3px;
+  margin: -4px -3px;
+  display: inline-block;
+  border-radius: 4px;
+}
 .site-footer .current { color: var(--text); }
 @media (min-width: 640px) {
   .container { padding: 32px; }
@@ -545,6 +623,45 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
   .health-row { align-items: center; }
 }
 """.strip("\n")
+
+
+# Blocking theme-init script: must run before ``_PAGE_CSS`` is parsed so the
+# saved preference (if any) is reflected in the very first paint -- this is
+# what prevents a flash of the wrong theme. Applies ONLY an explicit stored
+# choice; when nothing is stored, the ``prefers-color-scheme`` media query in
+# ``_PAGE_CSS`` alone determines the OS-default theme (no JS needed for that
+# path, so it works even before/without this script running).
+_THEME_INIT_SCRIPT = (
+    "(function(){try{var t=localStorage.getItem('theme');"
+    "if(t==='light'||t==='dark'){"
+    "document.documentElement.setAttribute('data-theme',t);"
+    "}}catch(e){}})();"
+)
+
+# Toggle wiring: deferred to the end of <body> (button must exist first).
+# Reads the live effective theme (explicit attribute, else OS default via
+# matchMedia) to decide which way to flip, persists the explicit choice.
+_THEME_TOGGLE_SCRIPT = (
+    "(function(){"
+    "var btn=document.getElementById('theme-toggle');"
+    "if(!btn)return;"
+    "function isDark(){"
+    "var t=document.documentElement.getAttribute('data-theme');"
+    "return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;"
+    "}"
+    "function sync(){"
+    "btn.textContent=isDark()?'Light':'Dark';"
+    "btn.setAttribute('aria-pressed',String(isDark()));"
+    "}"
+    "sync();"
+    "btn.addEventListener('click',function(){"
+    "var next=isDark()?'light':'dark';"
+    "document.documentElement.setAttribute('data-theme',next);"
+    "try{localStorage.setItem('theme',next);}catch(e){}"
+    "sync();"
+    "});"
+    "})();"
+)
 
 
 def _badge_class(tag: str) -> str:
@@ -712,8 +829,13 @@ def render_page(report: ReportData, all_dates: list[str], is_archive_page: bool)
 
     body_sections = [
         '<header class="lead">'
+        '<div class="lead-top">'
+        '<div class="lead-heading">'
         f"<h1>{title_html}</h1>"
         f'<p class="report-date">{_escape_html(report.date or "")}</p>'
+        "</div>"
+        '<button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false">Dark</button>'
+        "</div>"
         f'<div class="lead-summary">{markdown_to_html(report.executive_summary_md)}</div>'
         "</header>",
         _render_items_section(report),
@@ -729,12 +851,14 @@ def render_page(report: ReportData, all_dates: list[str], is_archive_page: bool)
         '<html lang="en">\n'
         "<head>\n"
         '<meta charset="utf-8">\n'
+        f"<script>{_THEME_INIT_SCRIPT}</script>\n"
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{title_html}</title>\n"
         f"<style>{_PAGE_CSS}</style>\n"
         "</head>\n"
         "<body>\n"
         f'<div class="container">\n{body_html}\n</div>\n'
+        f"<script>{_THEME_TOGGLE_SCRIPT}</script>\n"
         "</body>\n"
         "</html>\n"
     )

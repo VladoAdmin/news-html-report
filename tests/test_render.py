@@ -29,6 +29,7 @@ from render_news_html import (
     SourceHealthRow,
     _badge_class,
     _footer_dates_html,
+    _PAGE_CSS,
     discover_archive_dates,
     main,
     parse_report_file,
@@ -241,6 +242,60 @@ def test_no_external_resource_loads_in_any_rendered_sample():
     for key in SAMPLE_FILES:
         _, html = _render_sample(key)
         assert not _EXTERNAL_RESOURCE_RE.search(html), key
+
+
+# ---------------------------------------------------------------------------
+# Dark mode + responsive (Sprint 4, VLA-60)
+# ---------------------------------------------------------------------------
+
+
+def test_theme_toggle_button_present_on_index_and_archive_page():
+    for is_archive in (False, True):
+        _, html = _render_sample("2026-07-17", is_archive_page=is_archive)
+        assert 'id="theme-toggle"' in html
+        assert 'class="theme-toggle"' in html
+
+
+def test_theme_init_script_runs_before_style_in_head():
+    _, html = _render_sample("2026-07-17")
+    head = html.split("</head>")[0]
+    script_pos = head.index("<script>")
+    style_pos = head.index("<style>")
+    assert script_pos < style_pos
+
+
+def test_theme_init_script_reads_localstorage_and_sets_data_theme_attribute():
+    _, html = _render_sample("2026-07-17")
+    head = html.split("</head>")[0]
+    assert "localStorage.getItem('theme')" in head
+    assert "setAttribute('data-theme'" in head
+
+
+def test_dark_mode_css_present():
+    _, html = _render_sample("2026-07-17")
+    assert "prefers-color-scheme: dark" in html
+    assert 'data-theme="dark"' in html
+
+
+def test_toggle_persists_choice_to_localstorage_on_click():
+    _, html = _render_sample("2026-07-17")
+    assert "localStorage.setItem('theme'" in html
+
+
+def test_badge_unknown_fill_meets_wcag_aa_contrast_with_white_text():
+    # #9ca3af (the pre-dark-mode value) only has ~2.5:1 contrast with white
+    # text -- fails WCAG AA (needs 4.5:1). #6b7280 (~4.8:1) is the fix;
+    # regression guard so it doesn't silently drift back.
+    assert ".badge-unknown { background: #6b7280; }" in _PAGE_CSS
+
+
+def test_no_external_resource_loads_with_dark_mode_markup_present():
+    # Same self-containment guarantee must hold after the toggle/theme
+    # scripts were added -- inline scripts only, no src=.
+    for key in SAMPLE_FILES:
+        _, html = _render_sample(key)
+        assert not _EXTERNAL_RESOURCE_RE.search(html), key
+        assert "<script src=" not in html
 
 
 # ---------------------------------------------------------------------------

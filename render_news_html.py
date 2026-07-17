@@ -592,7 +592,7 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
 .status-dot.ok { background: var(--ok); }
 .status-dot.warn { background: var(--warn); }
 .status-dot.unknown { background: var(--unknown); }
-.health-source { font-weight: 600; flex: 0 0 auto; }
+.health-source { font-weight: 600; flex: 1 1 auto; min-width: 0; }
 .health-note { color: var(--muted); font-size: 0.9rem; }
 .skipped-section details {
   background: var(--card-bg);

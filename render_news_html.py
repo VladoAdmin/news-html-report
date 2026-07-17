@@ -328,6 +328,7 @@ def _convert_inline(text: str) -> str:
 
     def _link(m: re.Match[str]) -> str:
         label, url = m.group(1), m.group(2)
+        url = url.replace('"', "&quot;")
         return f'<a href="{url}">{label}</a>'
 
     text = _LINK_RE.sub(_link, text)

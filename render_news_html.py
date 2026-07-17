@@ -19,7 +19,11 @@ Python 3.11 stdlib only.
 
 from __future__ import annotations
 
+import argparse
+import os
 import re
+import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -733,3 +737,107 @@ def render_page(report: ReportData, all_dates: list[str], is_archive_page: bool)
         "</body>\n"
         "</html>\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2b (VLA-54 cont.): archive discovery + CLI + atomic file writing
+# ---------------------------------------------------------------------------
+
+_ARCHIVE_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})\.html$")
+_UNDATED_ARCHIVE_STEM = "undated"
+
+
+def discover_archive_dates(out_dir: str | Path) -> set[str]:
+    """Scan ``<out_dir>/archive/*.html`` for filenames matching
+    ``YYYY-MM-DD.html`` and return the set of date strings found.
+
+    Returns an empty set if the archive directory doesn't exist yet. Matches
+    on a filename regex rather than trusting directory-listing order, so a
+    non-matching file (``notes.txt``, ``bad-name.html``) is ignored instead
+    of misparsed.
+    """
+    archive_dir = Path(out_dir) / "archive"
+    if not archive_dir.is_dir():
+        return set()
+    dates = set()
+    for entry in archive_dir.iterdir():
+        m = _ARCHIVE_FILENAME_RE.match(entry.name)
+        if m:
+            dates.add(m.group(1))
+    return dates
+
+
+def _write_atomic(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` atomically.
+
+    Writes to a temp file in ``path``'s own directory (creating that
+    directory if needed), then ``os.replace()``s it onto the final name --
+    so a crash mid-write never leaves a half-written file at ``path``, and
+    the temp file never lingers on success or failure.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.remove(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: ``render_news_html.py <input.md> --out <dir> [--strict]``.
+
+    Parses ``<input.md>`` first; nothing is written to ``<out_dir>`` unless
+    the parse succeeds (per ``--strict`` semantics -- see PRD acceptance
+    criterion 5). On success, computes the archive date union ONCE and
+    renders both pages from that same ``all_dates`` list (this is what keeps
+    a re-run byte-identical), then writes both files atomically.
+    """
+    arg_parser = argparse.ArgumentParser(prog="render_news_html.py")
+    arg_parser.add_argument("input", help="Path to the input news-YYYY-MM-DD.md report")
+    arg_parser.add_argument("--out", required=True, help="Output directory")
+    arg_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail (exit 1) if no date or no '## Items' section can be resolved",
+    )
+    args = arg_parser.parse_args(argv)
+
+    try:
+        report = parse_report_file(args.input, strict=args.strict)
+    except StrictValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    out_dir = Path(args.out)
+
+    # Compute the archive date union ONCE, before any write, so both pages
+    # rendered this run share the exact same all_dates list (this is the
+    # fixed point that keeps an in-place re-run byte-identical).
+    existing_dates = discover_archive_dates(out_dir)
+    all_dates_set = set(existing_dates)
+    if report.date is not None:
+        all_dates_set.add(report.date)
+    all_dates = sorted(all_dates_set, reverse=True)
+
+    index_html = render_page(report, all_dates, is_archive_page=False)
+    archive_html = render_page(report, all_dates, is_archive_page=True)
+
+    # report.date is None only in non-strict mode (PRD allows it); fall back
+    # to a stable placeholder filename for the archive copy in that edge
+    # case only -- it deliberately never enters all_dates / footer nav.
+    archive_stem = report.date if report.date is not None else _UNDATED_ARCHIVE_STEM
+
+    _write_atomic(out_dir / "index.html", index_html)
+    _write_atomic(out_dir / "archive" / f"{archive_stem}.html", archive_html)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

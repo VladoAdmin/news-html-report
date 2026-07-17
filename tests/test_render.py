@@ -19,6 +19,8 @@ file-writing / archive-directory scanning is Sprint 2b, not tested here):
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 from render_news_html import (
@@ -27,6 +29,8 @@ from render_news_html import (
     SourceHealthRow,
     _badge_class,
     _footer_dates_html,
+    discover_archive_dates,
+    main,
     parse_report_file,
     render_page,
 )
@@ -286,3 +290,147 @@ def test_render_page_is_deterministic():
     html_1 = render_page(report, all_dates=[report.date], is_archive_page=False)
     html_2 = render_page(report, all_dates=[report.date], is_archive_page=False)
     assert html_1 == html_2
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2b (VLA-54 cont.): CLI + archive/index file-writing integration
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_cli_main_renders_each_sample_end_to_end(tmp_path):
+    for key, path in SAMPLE_FILES.items():
+        out_dir = tmp_path / key
+        exit_code = main([str(path), "--out", str(out_dir)])
+        assert exit_code == 0, key
+
+        index_path = out_dir / "index.html"
+        archive_path = out_dir / "archive" / f"{key}.html"
+        assert index_path.exists(), key
+        assert archive_path.exists(), key
+
+        for html in (index_path.read_text(encoding="utf-8"), archive_path.read_text(encoding="utf-8")):
+            assert "<html" in html, key
+            assert "</html>" in html, key
+            assert KNOWN_DIACRITIC_SUBSTRING[key] in html, key
+
+
+def test_cli_subprocess_true_end_to_end_matches_prd_invocation(tmp_path):
+    # PRD acceptance criterion 1's exact invocation form: a real subprocess,
+    # not a direct function call -- proves the command line actually works,
+    # not just the Python function behind it.
+    out_dir = tmp_path / "out"
+    result = subprocess.run(
+        [sys.executable, "render_news_html.py", str(SAMPLE_FILES["2026-07-16"]), "--out", str(out_dir)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    index_html = (out_dir / "index.html").read_text(encoding="utf-8")
+    archive_html = (out_dir / "archive" / "2026-07-16.html").read_text(encoding="utf-8")
+    for html in (index_html, archive_html):
+        assert "<html" in html
+        assert "</html>" in html
+        assert KNOWN_DIACRITIC_SUBSTRING["2026-07-16"] in html
+
+
+def test_cli_output_is_self_contained():
+    out_dir_key = "2026-07-17"
+
+    def _run(tmp):
+        exit_code = main([str(SAMPLE_FILES[out_dir_key]), "--out", str(tmp)])
+        assert exit_code == 0
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        _run(tmp)
+        index_html = (tmp / "index.html").read_text(encoding="utf-8")
+        archive_html = (tmp / "archive" / f"{out_dir_key}.html").read_text(encoding="utf-8")
+        assert not _EXTERNAL_RESOURCE_RE.search(index_html)
+        assert not _EXTERNAL_RESOURCE_RE.search(archive_html)
+
+
+def test_cli_rerun_same_sample_same_out_dir_is_byte_identical(tmp_path):
+    out_dir = tmp_path / "out"
+    path = SAMPLE_FILES["2026-07-16"]
+
+    assert main([str(path), "--out", str(out_dir)]) == 0
+    index_bytes_1 = (out_dir / "index.html").read_bytes()
+    archive_bytes_1 = (out_dir / "archive" / "2026-07-16.html").read_bytes()
+
+    assert main([str(path), "--out", str(out_dir)]) == 0
+    index_bytes_2 = (out_dir / "index.html").read_bytes()
+    archive_bytes_2 = (out_dir / "archive" / "2026-07-16.html").read_bytes()
+
+    assert index_bytes_1 == index_bytes_2
+    assert archive_bytes_1 == archive_bytes_2
+
+
+def test_cli_two_daily_runs_produce_correct_cross_linked_archive_footer(tmp_path):
+    out_dir = tmp_path / "out"
+
+    # Day 1: simulate the first cron run.
+    assert main([str(SAMPLE_FILES["2026-07-16"]), "--out", str(out_dir)]) == 0
+    archive_16 = out_dir / "archive" / "2026-07-16.html"
+    assert archive_16.exists()
+    archive_16_bytes_after_day1 = archive_16.read_bytes()
+
+    # Day 2: simulate the next day's cron run into the SAME out dir.
+    assert main([str(SAMPLES_DIR / "news-2026-07-17.md"), "--out", str(out_dir)]) == 0
+
+    index_html = (out_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="archive/2026-07-16.html"' in index_html
+
+    archive_17_html = (out_dir / "archive" / "2026-07-17.html").read_text(encoding="utf-8")
+    assert 'href="../index.html"' in archive_17_html
+    assert 'href="2026-07-16.html"' in archive_17_html
+
+    # 2b never deletes/rewrites old archive pages -- day 1's file must still
+    # exist, byte-identical to what day 1 wrote.
+    assert archive_16.exists()
+    assert archive_16.read_bytes() == archive_16_bytes_after_day1
+
+
+def test_cli_strict_garbage_input_exits_nonzero_and_writes_nothing(tmp_path, capsys):
+    garbage_md = tmp_path / "garbage.md"
+    garbage_md.write_text("just some text\n", encoding="utf-8")
+    out_dir = tmp_path / "out"  # fresh -- never used by a passing case
+
+    exit_code = main([str(garbage_md), "--out", str(out_dir), "--strict"])
+
+    assert exit_code != 0
+    captured = capsys.readouterr()
+    assert captured.err.strip() != ""
+    assert not out_dir.exists()
+    assert not (out_dir / "index.html").exists()
+    assert not (out_dir / "archive").exists()
+
+
+def test_discover_archive_dates_matches_filenames_ignores_others(tmp_path):
+    archive_dir = tmp_path / "archive"
+    archive_dir.mkdir()
+    (archive_dir / "2026-07-14.html").write_text("x", encoding="utf-8")
+    (archive_dir / "2026-07-16.html").write_text("x", encoding="utf-8")
+    (archive_dir / "notes.txt").write_text("x", encoding="utf-8")
+    (archive_dir / "bad-name.html").write_text("x", encoding="utf-8")
+
+    assert discover_archive_dates(tmp_path) == {"2026-07-14", "2026-07-16"}
+
+
+def test_discover_archive_dates_missing_dir_returns_empty_set(tmp_path):
+    assert discover_archive_dates(tmp_path / "does-not-exist") == set()
+
+
+def test_cli_run_leaves_no_stray_temp_files(tmp_path):
+    out_dir = tmp_path / "out"
+    assert main([str(SAMPLE_FILES["2026-07-14"]), "--out", str(out_dir)]) == 0
+
+    all_files = [p for p in out_dir.rglob("*") if p.is_file()]
+    assert all_files, "expected at least index.html + archive/<date>.html to exist"
+    stray = [p for p in all_files if p.suffix == ".tmp" or p.name.startswith(".")]
+    assert stray == []

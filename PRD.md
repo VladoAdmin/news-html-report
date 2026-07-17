@@ -100,5 +100,27 @@ consistent with each other, which drives the robustness requirements below:
 ## Out of scope / explicitly deferred
 
 - RSS/Atom feed, search, pagination beyond a flat archive link list.
-- Dark mode toggle (a single palette that is legible in both bright outdoor
-  phone use and desktop is enough; not required to detect OS theme).
+
+## Addendum 2026-07-17 — Dark mode + responsive layout (VLA-50 sub-issue)
+
+Supersedes the original "dark mode toggle" deferral above (that line is
+struck from scope; this addendum is now authoritative for theming). Driven
+by F2: the product owner reads the report primarily on his phone from a
+Telegram link, so mobile usability is the top priority of this addendum.
+
+9. Dark mode: page respects OS `prefers-color-scheme` by default AND offers a
+   small manual light/dark toggle. The manual choice persists across reloads
+   via `localStorage` and wins over the OS default once set. No flash of
+   wrong theme on load (theme resolved by a blocking inline script in
+   `<head>`, before first paint).
+10. Both themes meet WCAG AA contrast for body text; links, code blocks,
+    badges/tags and accent colors must be legible in dark mode, not just a
+    naive color inversion.
+11. Responsive: no horizontal scroll from 360px viewport width up, typography
+    scales sensibly, tap targets (toggle, links, archive nav) are comfortably
+    tappable on touch. Desktop layout must not regress.
+12. Archive pages get identical theming/responsive treatment via the same
+    `render_page()` template and shared `_PAGE_CSS` — no forked stylesheet.
+13. No backend/build step introduced: toggle state is inline JS +
+    `localStorage` only, consistent with the "self-contained, no network
+    calls" constraints above.

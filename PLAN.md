@@ -147,6 +147,57 @@ names from the Sprint 1 commit — do not re-derive from PLAN.md prose alone).
 **Definition of done:** commit `feat(demo): render-daily wrapper + committed demo output`.
 Final summary written by the orchestrating session (not this subagent).
 
+## Sprint 4 — Dark mode + responsive layout (VLA-50 sub-issue, added 2026-07-17)
+
+**Scope:** `render_news_html.py` only — `_PAGE_CSS` and `render_page()`'s
+`<head>`/body markup. See PRD.md addendum criteria 9-13. No parser changes,
+no CLI changes, no change to `render-daily.sh` publish semantics (F2-owned).
+
+- Convert `_PAGE_CSS`'s `:root` palette into light-theme custom properties,
+  add a parallel dark set gated by `@media (prefers-color-scheme: dark)` AND
+  a `html[data-theme="dark"]` override (manual toggle wins over OS default —
+  the attribute selector must have equal/higher specificity than the media
+  query, so put it after the media block or make it more specific).
+- Blocking inline `<script>` as the FIRST thing in `<head>` (before
+  `<style>`): reads `localStorage.getItem('theme')`, falls back to
+  `matchMedia('(prefers-color-scheme: dark)')` when unset, sets
+  `document.documentElement.dataset.theme` synchronously — this is what
+  prevents a flash of wrong theme (must run before CSS paints, so it cannot
+  be deferred/async).
+- Toggle button (in the footer or header, per implementer's call) with a
+  second small inline `<script>` (can be deferred, end of `<body>`): on
+  click, flips `data-theme`, writes the explicit choice to `localStorage`.
+  Tap target ≥ 40px per side.
+- Re-check every hardcoded color in `_PAGE_CSS` (badges, status dots, links,
+  code) against the dark background for WCAG AA — several are already
+  custom-property-driven, some (badge fixed hex fills, `<code>` if any) are
+  not; convert what needs a dark-specific value.
+- Responsive pass: verify 360px width has no horizontal scroll (test the
+  narrowest real device class, not just the existing `640px` breakpoint
+  which only handles desktop-up); check tap target sizing on toggle/links/
+  footer archive nav.
+- Both `index.html` and `archive/<date>.html` get this for free since both
+  are produced by the same `render_page()` call (PRD criterion 12) — no
+  template fork.
+
+**Tests (pytest, extend `tests/test_render.py`):** assert toggle button
+markup present, assert the blocking theme-init `<script>` appears before
+`<style>` in `<head>`, assert `prefers-color-scheme` and `data-theme` both
+appear in the CSS, assert self-containment regex still passes (no external
+resource loads introduced), full existing suite stays green.
+
+**Manual/visual (non-automatable, PRD criteria 10-11):** Playwright
+screenshots — index light/desktop, index dark/desktop, index light/mobile
+(390px), index dark/mobile (390px), one archive page dark/mobile. Spot-check
+contrast via `getComputedStyle` for body text / badges / links in dark mode
+(learned in Sprint 2/3: don't eyeball a screenshot alone for color claims).
+
+**Definition of done:** `pytest tests/ -v` green. Commit:
+`feat(render): dark mode + responsive layout`. Codex/GPT-5.5 review gate run
+or Sonnet may take on this sprint itself and self-run the gate (task named
+this session as the sprint owner, not a subagent) — CRITICAL findings fixed
+before PR.
+
 ## Review gates
 
 After PRD+PLAN authored (before Sprint 1) and after each sprint's diff: run

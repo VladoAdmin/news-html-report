@@ -19,31 +19,40 @@ cleaner — sprint owner's call, keep it simple) containing:
   but the generic converter should not crash if it meets one — render it as
   a plain paragraph fallback is acceptable for genuinely generic sections).
 - A parser: raw markdown text → structured dict/dataclass:
-  `{title, date, executive_summary_md, items: [...], skipped_md, source_health_rows, other_sections: [(heading, body_md), ...]}`.
+  `{title, date, executive_summary_md, items: [...], item_extras: [(heading, body_md), ...], skipped_md, source_health_rows, other_sections: [(heading, body_md), ...]}`.
   - `date`: try filename `news-(\d{4}-\d{2}-\d{2})\.md` first, then H1
     trailing date, else `None`.
   - `items`: split `## Items` by H3. Each H3 matching
     `^(\d+)\.\s*\[([^\]]+)\]\s*(.+)$` → `{n, tags: [...], title, fields: [(label, body_md), ...], preamble_md}`.
-    Non-matching H3s under Items → append to `other_sections` (do not drop
-    silently).
+    Non-matching H3s under Items (e.g. `### Nízkosignálové pokračovania`) →
+    append to **`item_extras`** (a field on the Items section itself, NOT
+    the top-level `other_sections` list — Sprint 2 renders these
+    immediately after the item cards, inside the Items block, to preserve
+    their actual document position; do not drop silently).
   - `source_health_rows`: parse the first markdown table found under a
     heading matching `/^source health/i` into `[{source, status_raw, status_class, note}]`,
-    `status_class` in `{ok, warn, dead, unknown}` derived by keyword/emoji
-    match, default `unknown` (not a crash) if nothing matches.
-  - Any H2 not matching Executive summary / Items / Skipped / Source health →
-    `other_sections` entry, original order preserved.
-- `--strict` validation: raise/exit non-zero when there is no H1 **and** no
-  filename date, or no `## Items` section at all. Everything else degrades.
+    `status_class` in `{ok, warn, unknown}` (see PRD: `NESPUSTENÉ` and any
+    unrecognized status text both map to `unknown`, not a crash).
+  - `skipped_md`: body of the first H2 matching case-insensitive prefix
+    `skipped` (real heading has a trailing parenthetical — prefix match, not
+    exact string).
+  - Any H2 not matching Executive summary / Items / Skipped-prefix / Source
+    health → `other_sections` entry, original document order preserved.
+- `--strict` validation: raise/exit non-zero iff no date is resolvable
+  (filename **or** H1) OR no `## Items` section exists at all — this is the
+  one and only strict rule (PRD.md is the source of truth for it). Everything
+  else degrades.
 
 **Tests (pytest, `tests/test_parser.py`):**
-- Parse all 3 `samples/*.md` — assert item counts (5, 3, 5 respectively —
-  verify actual counts from the files, don't hardcode a guess), at least one
-  badge extracted per file, source-health row count matches the table row
-  count in each file.
+- Parse all 3 `samples/*.md` — assert item counts **3 for `-14.md`, 5 for
+  `-16.md`, 5 for `-17.md`** (confirmed by direct read of the files during
+  planning — do not re-derive a different number), at least one badge
+  extracted per file, source-health row count matches the table row count in
+  each file.
 - `news-2026-07-14.md` and `-16.md`: assert the trailing
   `### Nízkosignálové pokračovania` H3 does NOT get parsed as a numbered item
-  (regression guard for the format quirk documented in PRD.md) and does not
-  raise.
+  and lands in `item_extras` (not `other_sections`, not dropped) — regression
+  guard for the format quirk documented in PRD.md.
 - Garbage input (e.g. `"just some text\n"`) with `--strict` semantics → parser
   entry point raises/signals failure; without `--strict` → returns a
   best-effort structure without raising.
@@ -63,19 +72,33 @@ names from the Sprint 1 commit — do not re-derive from PLAN.md prose alone).
 - Item cards: severity badge (color map for BREAKING=red, INFO=neutral,
   PATTERN=purple; unknown tag → neutral gray fallback, multiple tags render
   as multiple badge chips), field list (label + rendered body), links
-  clickable.
-- Source health: compact status table/grid — colored dot or chip per
-  `status_class` (ok=green, warn=amber, dead/unknown=gray/red) + source name
-  + note. Pure HTML/CSS.
-- `## Skipped` → `<details><summary>Skipped (N)</summary>...</details>`,
+  clickable. `item_extras` (non-numbered H3s under Items, e.g.
+  `Nízkosignálové pokračovania`) render as plain sub-blocks immediately after
+  the item cards, still inside the Items section — preserves their real
+  document position (see Sprint 1 fix: these are NOT in `other_sections`).
+- Source health: compact status table/grid — colored dot/chip per
+  `status_class` (ok=green, warn=amber, unknown=gray) + source name + note +
+  a small summary strip tallying rows by class (e.g. "6 OK · 2 WARN · 1 —").
+  Pure HTML/CSS.
+- `## Skipped...` → `<details><summary>Skipped (N)</summary>...</details>`,
   collapsed (no `open` attribute).
 - Generic `other_sections` → rendered in original document order using the
   Sprint 1 markdown-subset converter, plain card, heading preserved.
 - CLI: `render_news_html.py <input.md> --out <dir> [--strict]`.
-  - Writes `<dir>/archive/<date>.html` and `<dir>/index.html` (same rendered
-    content; index is the "latest" alias). Footer on both lists archive dir
-    contents (scanned at render time, sorted desc by filename), current date
-    highlighted/non-linked, others linked to `archive/<date>.html`.
+  - **Archive date set (compute once, before any write):**
+    `existing = {YYYY-MM-DD parsed from filenames already in <dir>/archive/*.html}`;
+    `all_dates = sorted(existing | {this_report_date}, reverse=True)`. Same
+    `all_dates` list drives the footer on both pages written this run — this
+    is what keeps a re-run byte-identical (the union is a fixed point once
+    this date's file exists).
+  - Writes `<dir>/archive/<date>.html` and `<dir>/index.html`. **They are
+    NOT byte-identical** — same body content, but relative links differ by
+    page location: from `index.html` (dir root) archive links are
+    `archive/<d>.html`; from `archive/<date>.html` other-day links are
+    `<d>.html` (sibling) and the "back to latest" link is `../index.html`.
+    Render the footer with a page-relative link builder, not a hardcoded
+    prefix. Current date in the footer is styled active/non-linked on its
+    own page.
   - Exit 0 on success; on `--strict` parse failure, print reason to stderr,
     exit 1; no partial/half-written files on failure (write to temp, rename).
   - No wall-clock timestamps embedded in output (breaks idempotency) —
@@ -91,8 +114,13 @@ names from the Sprint 1 commit — do not re-derive from PLAN.md prose alone).
 - Self-containment check: no regex match for
   `<link[^>]+href=["']https?://` or `<script[^>]+src=["']https?://` or
   `<script[^>]+src=["']//`  anywhere in the output.
-- Idempotency: render twice to two different tmp dirs from the same input →
-  byte-identical `index.html`.
+- Idempotency: render the SAME input into the SAME tmp dir twice in a row
+  (in-place re-run, the realistic daily-cron case) → byte-identical
+  `index.html` and byte-identical `archive/<date>.html` on both runs.
+- Archive footer correctness: render two different dated samples into the
+  same tmp dir in sequence → the second run's `index.html` links to the
+  first day's archive page via `archive/<d>.html`, and that archive page's
+  own footer links back via `../index.html` (not a dead relative path).
 - `--strict` on garbage input → non-zero exit, no output files left behind.
 
 **Definition of done:** `pytest tests/ -v` green (parser + render). Commit:

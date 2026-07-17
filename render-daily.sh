@@ -10,7 +10,7 @@ SOURCE_DIR="${2:-samples/}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 newest=""
-for f in "$SOURCE_DIR"/news-????-??-??.md; do
+for f in "$SOURCE_DIR"/news-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md; do
     [ -e "$f" ] || continue
     base="$(basename "$f")"
     if [ -z "$newest" ] || [ "$base" \> "$(basename "$newest")" ]; then

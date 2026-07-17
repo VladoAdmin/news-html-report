@@ -611,8 +611,8 @@ h3 { font-size: 1.05rem; margin: 0 0 8px; }
 }
 .site-footer a {
   color: var(--link);
-  padding: 4px 3px;
-  margin: -4px -3px;
+  padding: 10px 6px;
+  margin: -10px -6px;
   display: inline-block;
   border-radius: 4px;
 }
@@ -650,8 +650,9 @@ _THEME_TOGGLE_SCRIPT = (
     "return t?t==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;"
     "}"
     "function sync(){"
-    "btn.textContent=isDark()?'Light':'Dark';"
-    "btn.setAttribute('aria-pressed',String(isDark()));"
+    "var label=isDark()?'Light':'Dark';"
+    "btn.textContent=label;"
+    "btn.setAttribute('aria-label','Switch to '+label.toLowerCase()+' theme');"
     "}"
     "sync();"
     "btn.addEventListener('click',function(){"
@@ -834,7 +835,7 @@ def render_page(report: ReportData, all_dates: list[str], is_archive_page: bool)
         f"<h1>{title_html}</h1>"
         f'<p class="report-date">{_escape_html(report.date or "")}</p>'
         "</div>"
-        '<button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false">Dark</button>'
+        '<button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark theme">Dark</button>'
         "</div>"
         f'<div class="lead-summary">{markdown_to_html(report.executive_summary_md)}</div>'
         "</header>",

@@ -1,14 +1,18 @@
 """Markdown parser and data model for the daily news report.
 
-Sprint 1 (VLA-53) scope only:
+Sprint 1 (VLA-53) scope:
   - A tiny markdown-subset -> HTML inline converter (bold, italic, inline
     code, links, bullet/numbered lists, paragraphs). Used by Sprint 2's
     HTML renderer for field bodies / generic sections.
   - A parser that turns the raw report markdown into a structured data
     model (``ReportData``).
 
-No HTML page template, no CLI, no archive/index writing here -- that is
-Sprint 2 (VLA-54).
+Sprint 2a (VLA-54, renderer core only) additionally provides:
+  - ``render_page``: renders one full, self-contained HTML page for a
+    ``ReportData``. Pure function -- no filesystem access, no
+    ``datetime.now()``, no randomness.
+
+No CLI, no archive/index directory writing here -- that is Sprint 2b.
 
 Python 3.11 stdlib only.
 """
@@ -393,3 +397,339 @@ def markdown_to_html(md_text: str) -> str:
         else:
             html_parts.append(f"<p>{_convert_inline(' '.join(contents))}</p>")
     return "\n".join(html_parts)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 2a (VLA-54): HTML page renderer (core only -- no CLI, no file I/O)
+# ---------------------------------------------------------------------------
+
+# Badge color map: case-insensitive match on tag text (see PRD -- tags are
+# NOT a hardcoded closed set, so this is a dict + .get() fallback, never an
+# if/elif chain per unknown value).
+_BADGE_CLASSES = {
+    "BREAKING": "badge-breaking",
+    "INFO": "badge-info",
+    "PATTERN": "badge-pattern",
+}
+_BADGE_DEFAULT_CLASS = "badge-unknown"
+
+# Source-health summary strip: fixed iteration order (not a dict/set
+# iteration) so output is deterministic; label text per PRD is the literal
+# "OK" / "WARN" / "—" (em dash), not the word "UNKNOWN".
+_STATUS_ORDER = ("ok", "warn", "unknown")
+_STATUS_LABELS = {"ok": "OK", "warn": "WARN", "unknown": "—"}
+
+_PAGE_CSS = """
+:root {
+  color-scheme: light;
+  --accent: #4f46e5;
+  --accent-dark: #3730a3;
+  --bg: #f7f6f2;
+  --card-bg: #ffffff;
+  --text: #1f2430;
+  --muted: #5b6472;
+  --border: #e2e0da;
+  --ok: #15803d;
+  --warn: #b45309;
+  --unknown: #6b7280;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+.container { max-width: 720px; margin: 0 auto; padding: 16px; }
+h1, h2, h3 { line-height: 1.25; }
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+h2 { font-size: 1.25rem; margin: 32px 0 12px; color: var(--accent-dark); }
+h3 { font-size: 1.05rem; margin: 0 0 8px; }
+.lead {
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.lead h1 { color: #fff; }
+.report-date { opacity: 0.85; margin: 0 0 12px; font-size: 0.9rem; }
+.lead-summary p { margin: 0 0 10px; }
+.lead-summary p:last-child { margin-bottom: 0; }
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(20, 20, 40, 0.06);
+}
+.item-card { border-left: 4px solid var(--accent); }
+.badges { margin-bottom: 6px; }
+.badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+  color: #fff;
+}
+.badge-breaking { background: #dc2626; }
+.badge-info { background: #64748b; }
+.badge-pattern { background: #7c3aed; }
+.badge-unknown { background: #9ca3af; }
+.item-title { margin: 4px 0 10px; }
+.field { margin-top: 10px; }
+.field-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+.field-body p { margin: 4px 0; }
+.item-extra { padding: 10px 0; border-top: 1px dashed var(--border); margin-top: 10px; }
+.health-summary { font-weight: 600; margin-bottom: 10px; }
+.health-grid { display: flex; flex-direction: column; gap: 6px; }
+.health-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.status-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.ok { background: var(--ok); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.unknown { background: var(--unknown); }
+.health-source { font-weight: 600; flex: 0 0 auto; }
+.health-note { color: var(--muted); font-size: 0.9rem; }
+.skipped-section details {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.skipped-section summary { cursor: pointer; font-weight: 600; }
+.generic-section h2 { margin-top: 0; }
+.site-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.site-footer a { color: var(--accent-dark); }
+.site-footer .current { color: var(--text); }
+@media (min-width: 640px) {
+  .container { padding: 32px; }
+  h1 { font-size: 2rem; }
+  .health-row { align-items: center; }
+}
+""".strip("\n")
+
+
+def _badge_class(tag: str) -> str:
+    """Map a tag string to its badge CSS class, case-insensitively. Any tag
+    not in the known set falls back to the neutral "unknown" class rather
+    than raising (see PRD -- tags are not a closed set)."""
+    return _BADGE_CLASSES.get(tag.upper(), _BADGE_DEFAULT_CLASS)
+
+
+def _render_badges(tags: list[str]) -> str:
+    """One badge chip per tag (a tag list of 2+ renders 2+ chips)."""
+    return "".join(
+        f'<span class="badge {_badge_class(tag)}">{_escape_html(tag)}</span>' for tag in tags
+    )
+
+
+def _render_item_card(item: Item) -> str:
+    parts = ['<article class="card item-card">']
+    parts.append(f'<div class="badges">{_render_badges(item.tags)}</div>')
+    parts.append(f'<h3 class="item-title">{_escape_html(item.title)}</h3>')
+    if item.preamble_md.strip():
+        parts.append(f'<div class="item-preamble">{markdown_to_html(item.preamble_md)}</div>')
+    for label, body_md in item.fields:
+        parts.append(
+            '<div class="field">'
+            f'<div class="field-label">{_escape_html(label)}</div>'
+            f'<div class="field-body">{markdown_to_html(body_md)}</div>'
+            "</div>"
+        )
+    parts.append("</article>")
+    return "\n".join(parts)
+
+
+def _render_items_section(report: ReportData) -> str:
+    """Item cards, followed by ``item_extras`` (non-numbered trailing H3s,
+    e.g. "Nizkosignalove pokracovania") rendered as plain sub-blocks in
+    original list order -- still inside the Items section, not a new
+    top-level section (see PRD/PLAN: these are NOT ``other_sections``)."""
+    parts = ['<section class="items-section">', "<h2>Items</h2>"]
+    for item in report.items:
+        parts.append(_render_item_card(item))
+    for heading, body_md in report.item_extras:
+        parts.append(
+            '<div class="item-extra">'
+            f"<h3>{_escape_html(heading)}</h3>"
+            f"{markdown_to_html(body_md)}"
+            "</div>"
+        )
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
+def _render_source_health(report: ReportData) -> str:
+    """Compact visual grid (not a raw markdown table dump): a colored dot
+    per ``status_class`` + source + note, plus a summary strip tallying
+    counts by class in the literal PRD style ``"6 OK · 2 WARN · 1 —"``,
+    omitting any class whose count is 0."""
+    rows = report.source_health_rows
+    if not rows:
+        return ""
+
+    counts = {cls: 0 for cls in _STATUS_ORDER}
+    for row in rows:
+        counts[row.status_class] = counts.get(row.status_class, 0) + 1
+    summary = " · ".join(
+        f"{counts[cls]} {_STATUS_LABELS[cls]}" for cls in _STATUS_ORDER if counts[cls] > 0
+    )
+
+    row_html = []
+    for row in rows:
+        row_html.append(
+            '<div class="health-row">'
+            f'<span class="status-dot {row.status_class}"></span>'
+            f'<span class="health-source">{_escape_html(row.source)}</span>'
+            f'<span class="health-note">{_convert_inline(row.note)}</span>'
+            "</div>"
+        )
+
+    return (
+        '<section class="source-health">'
+        "<h2>Source health</h2>"
+        f'<div class="health-summary">{_escape_html(summary)}</div>'
+        f'<div class="health-grid">{"".join(row_html)}</div>'
+        "</section>"
+    )
+
+
+def _count_bullet_lines(md_text: str) -> int:
+    """Count top-level bullet lines (lines starting with ``-`` or ``*``
+    after stripping leading whitespace) -- used for the Skipped count."""
+    return sum(1 for line in md_text.split("\n") if line.strip().startswith(("-", "*")))
+
+
+def _render_skipped(report: ReportData) -> str:
+    """``<details><summary>Skipped (N)</summary>...</details>``, collapsed
+    by default (no ``open`` attribute). Omitted entirely when
+    ``skipped_md`` is ``None``."""
+    if report.skipped_md is None:
+        return ""
+    n = _count_bullet_lines(report.skipped_md)
+    body = markdown_to_html(report.skipped_md)
+    return (
+        '<section class="skipped-section">'
+        f"<details><summary>Skipped ({n})</summary>{body}</details>"
+        "</section>"
+    )
+
+
+def _render_other_sections(report: ReportData) -> str:
+    """Generic cards for ``other_sections``, in original list order."""
+    parts = []
+    for heading, body_md in report.other_sections:
+        parts.append(
+            '<section class="card generic-section">'
+            f"<h2>{_escape_html(heading)}</h2>"
+            f"{markdown_to_html(body_md)}"
+            "</section>"
+        )
+    return "\n".join(parts)
+
+
+def _footer_dates_html(all_dates: list[str], current_date: str | None, is_archive_page: bool) -> str:
+    """Build the footer's date-navigation links.
+
+    Sorts defensively descending (newest first) rather than trusting the
+    caller's ordering -- correctness here matters more than trusting input,
+    and de-dupes via ``set()`` (order doesn't matter since we re-sort).
+    ``current_date`` renders as active, non-linked text. Other dates link
+    ``archive/{d}.html`` from the index page, or ``{d}.html`` (sibling) from
+    an archive page; an archive page additionally gets a "Back to latest"
+    link to ``../index.html``.
+    """
+    dates_sorted = sorted(set(all_dates), reverse=True)
+    parts = []
+    for d in dates_sorted:
+        label = _escape_html(d)
+        if d == current_date:
+            parts.append(f'<strong class="current">{label}</strong>')
+        elif is_archive_page:
+            parts.append(f'<a href="{d}.html">{label}</a>')
+        else:
+            parts.append(f'<a href="archive/{d}.html">{label}</a>')
+    links_html = " · ".join(parts)
+
+    if is_archive_page:
+        back = '<a href="../index.html">Back to latest</a>'
+        return f"{back} · {links_html}" if links_html else back
+    return links_html
+
+
+def render_page(report: ReportData, all_dates: list[str], is_archive_page: bool) -> str:
+    """Render one full, self-contained HTML page for ``report``.
+
+    Both ``index.html`` and ``archive/<date>.html`` are produced by calling
+    this SAME function with the same ``report`` and ``all_dates``, differing
+    only in ``is_archive_page`` (governs the footer's relative link scheme).
+
+    Pure function: no filesystem access, no ``datetime.now()``, no
+    randomness, no unstable iteration order -- same inputs always produce
+    byte-identical output (load-bearing for Sprint 2b's idempotency tests).
+    """
+    title_html = _escape_html(report.title or "News report")
+    footer_html = f'<footer class="site-footer">{_footer_dates_html(all_dates, report.date, is_archive_page)}</footer>'
+
+    body_sections = [
+        '<header class="lead">'
+        f"<h1>{title_html}</h1>"
+        f'<p class="report-date">{_escape_html(report.date or "")}</p>'
+        f'<div class="lead-summary">{markdown_to_html(report.executive_summary_md)}</div>'
+        "</header>",
+        _render_items_section(report),
+        _render_source_health(report),
+        _render_skipped(report),
+        _render_other_sections(report),
+        footer_html,
+    ]
+    body_html = "\n".join(part for part in body_sections if part)
+
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"<title>{title_html}</title>\n"
+        f"<style>{_PAGE_CSS}</style>\n"
+        "</head>\n"
+        "<body>\n"
+        f'<div class="container">\n{body_html}\n</div>\n'
+        "</body>\n"
+        "</html>\n"
+    )
